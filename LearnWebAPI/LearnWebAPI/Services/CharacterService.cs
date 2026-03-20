@@ -1,39 +1,86 @@
-﻿using LearnWebAPI.Models;
+﻿using LearnWebAPI.Data;
+using LearnWebAPI.Dtos;
+using LearnWebAPI.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Client;
 
 namespace LearnWebAPI.Services
 {
-    public class CharacterService : ICharacterService
+    public class CharacterService(AppDbContext context) : ICharacterService
     {
-        static List<Character> characters = new List<Character>()
+        public async Task<CharacterResponse> AddCharacterAsync(CreateCharacterRequest character)
         {
-            new Models.Character { Id = 1, Name = "Zed", Game = "League of Legend", Role = "Assasin" },
-            new Models.Character { Id = 2, Name = "Airi", Game = "Arena of Valor", Role = "Bruiser" },
-            new Models.Character { Id = 3, Name = "Cloud", Game = "Final Fantasy XII", Role = "Wanderer" },
-            new Models.Character { Id = 4, Name = "Luffy", Game = "One piece", Role = "Captain"}
-        };
+            var newCharacter = new Character
+            {
+                Name = character.Name,
+                Game = character.Game,
+                Role = character.Role
+            };
 
-        public Task<Character> AddCharacterAsync(Character character)
-        {
-            throw new NotImplementedException();
+            context.Characters.Add(newCharacter);
+            await context.SaveChangesAsync();
+
+            return new CharacterResponse
+            {
+                Id = newCharacter.Id,
+                Name = newCharacter.Name,
+                Game = newCharacter.Game,
+                Role = newCharacter.Role
+            };
         }
 
-        public Task<bool> DeleteCharacterAsync(int id)
+        public async Task<bool> DeleteCharacterAsync(int id)
         {
-            throw new NotImplementedException();
+            var characterToDelete = await context.Characters.FindAsync(id);
+            if (characterToDelete is null)
+            {
+                return false;
+            }
+
+            context.Characters.Remove(characterToDelete);
+            await context.SaveChangesAsync();
+            
+            return true;
         }
 
-        public async Task<List<Character>> GetAllCharactersAsync()
-            => await Task.FromResult(characters);
+        public async Task<List<CharacterResponse>> GetAllCharactersAsync()
+            => await context.Characters.Select(c => new CharacterResponse
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Game = c.Game,
+                Role = c.Role
+            }).ToListAsync();
 
-        public async Task<Character?> GetCharacterByIdAsync(int id)
+        public async Task<CharacterResponse?> GetCharacterByIdAsync(int id)
         {
-            var result = characters.FirstOrDefault(c => c.Id == id);
-            return await Task.FromResult(result);
+            var result = await context.Characters
+                .Where(c => c.Id == id)
+                .Select(c => new CharacterResponse
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Game = c.Game,
+                    Role = c.Role
+                })
+                .FirstOrDefaultAsync();
+            return result;
         }
 
-        public Task<bool> UpdateCharacterAsync(int id, Character character)
+        public async Task<bool> UpdateCharacterAsync(int id, UpdateCharacterRequest character)
         {
-            throw new NotImplementedException();
+            var existingCharacter = await context.Characters.FindAsync(id);
+            if (existingCharacter is null)
+            {
+                return false;
+            }
+             
+            existingCharacter.Name = character.Name;
+            existingCharacter.Game = character.Game;
+            existingCharacter.Role = character.Role;
+
+            await context.SaveChangesAsync();
+            return true;
         }
     }
 }
